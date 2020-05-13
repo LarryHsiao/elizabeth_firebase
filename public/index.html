@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="utf-8">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nyx Login</title>
+  <script
+      src="https://cdn.firebase.com/libs/firebaseui/3.5.2/firebaseui.js"></script>
+  <link type="text/css" rel="stylesheet"
+        href="https://cdn.firebase.com/libs/firebaseui/3.5.2/firebaseui.css"/>
+  <link rel="stylesheet"
+        href="https://unpkg.com/spectre.css/dist/spectre.min.css">
+  <script defer src="/__/firebase/7.14.3/firebase-app.js"></script>
+  <script defer src="/__/firebase/7.14.3/firebase-auth.js"></script>
+  <script defer src="/__/firebase/init.js"></script>
+</head>
+<body>
+<div id="firebaseui-auth-container"></div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        try {
+            var ui = new firebaseui.auth.AuthUI(firebase.auth());
+            ui.start('#firebaseui-auth-container', {
+                signInOptions: [
+                    firebase.auth.EmailAuthProvider.PROVIDER_ID,
+                    firebase.auth.GoogleAuthProvider.PROVIDER_ID
+                ],
+            });
+            firebase.auth().onAuthStateChanged(user => {
+                if (user) {
+                    window.location.assign(`/nyx`);
+                }
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<html lang="utf-8">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nyx</title>
+  <link rel="stylesheet"
+        href="https://unpkg.com/spectre.css/dist/spectre.min.css">
+  <script defer src="/__/firebase/7.14.3/firebase-app.js"></script>
+  <script defer src="/__/firebase/7.14.3/firebase-auth.js"></script>
+  <script defer src="/__/firebase/init.js"></script>
+</head>
+<body>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        try {
+            firebase.auth().onAuthStateChanged(user => {
+                if (user) {
+                    const userId = user.uid;
+                    console.log("abc: " + userId)
+                }
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    });
+</script>
+</body>
+</html>
