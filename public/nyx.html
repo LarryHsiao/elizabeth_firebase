@@ -7,17 +7,56 @@
         href="https://unpkg.com/spectre.css/dist/spectre.min.css">
   <script defer src="/__/firebase/7.14.3/firebase-app.js"></script>
   <script defer src="/__/firebase/7.14.3/firebase-auth.js"></script>
+  <script defer src="/__/firebase/7.14.3/firebase-firestore.js"></script>
+  <script defer src="/__/firebase/7.14.3/firebase-storage.js"></script>
   <script defer src="/__/firebase/init.js"></script>
 </head>
 <body>
-
+<header class="navbar">
+  <section class="navbar-section">
+    <a onclick="logout()" class="btn btn-link">logout</a>
+  </section>
+</header>
+<div class="container">
+  <div class="columns text-center" id="data"></div>
+</div>
 <script>
+    var usera;
+
+    function logout(){
+        firebase.auth().signOut()
+        location.href = "/"
+    }
+
+    function listItem(item) {
+        const div = document.createElement('div');
+        div.className = "col-12 text-center"
+        const row = document.createElement('div');
+        row.className = "column col-sm-10 col-6  col-mx-auto bg-secondary text-primary docs-block"
+        row.innerText = item
+        div.append(row);
+        return div;
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         try {
             firebase.auth().onAuthStateChanged(user => {
                 if (user) {
-                    const userId = user.uid;
-                    console.log("abc: " + userId)
+                    usera = user
+                    const db = firebase.firestore();
+                    const storage = firebase.storage();
+                    db.collection(`${user.uid}/data/jots`)
+                        .where("delete", "==", 0)
+                        .orderBy('createdTime', 'desc')
+                        .get()
+                        .then((query) => {
+                            const list = document.getElementById('data');
+                            query.forEach((it) => {
+                                list.appendChild(
+                                    listItem(it.data().content)
+                                );
+                            })
+                        });
                 }
             });
         } catch (e) {

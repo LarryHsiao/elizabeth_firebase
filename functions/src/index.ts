@@ -1,8 +1,25 @@
-//import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions';
+import * as admin from 'firebase-admin';
+import * as express from 'express';
 
-// // Start writing Firebase Functions
-// // https://firebase.google.com/docs/functions/typescript
-//
-// export const helloWorld = functions.https.onRequest((request, response) => {
-//  response.send("Hello from Firebase!");
-// });
+require("firebase/firestore");
+admin.initializeApp(functions.config().firebase)
+
+const app = express();
+// const db = admin.firestore();
+app.get('/jots', (req, res) => {
+    // db.collection("q41FpvsIiYV9K241Jmuc7Lt71jN2/data/jots")
+    //     .orderBy('createdTime', 'desc')
+    //     .get()
+    //     .then((query) => {
+    //         query.forEach((item) => {
+    //             res.send(item.data().content)
+    //         });
+    //     })
+    //     .catch((err) => {
+    //         console.log("this is err: " + err)
+    //     });
+})
+
+exports.app = functions.https.onRequest(app);
+
