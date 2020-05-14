@@ -5,6 +5,8 @@
   <title>Nyx</title>
   <link rel="stylesheet"
         href="https://unpkg.com/spectre.css/dist/spectre.min.css">
+  <script type="text/javascript"
+          src="https://cdn.jsdelivr.net/npm/lozad/dist/lozad.min.js"></script>
   <script defer src="/__/firebase/7.14.3/firebase-app.js"></script>
   <script defer src="/__/firebase/7.14.3/firebase-auth.js"></script>
   <script defer src="/__/firebase/7.14.3/firebase-firestore.js"></script>
@@ -36,13 +38,17 @@
                     if (metadata.contentType.startsWith("image/")) {
                         let image = document.createElement('img');
                         image.className = "col-4"
-                        image.src = url;
+                        image.setAttribute("data-src", url)
+                        const observer = lozad(image);
+                        observer.observe();
                         row.append(image)
                     } else if (metadata.contentType.startsWith("video/")) {
                         let video = document.createElement('video');
                         video.className = "col-4"
                         video.controls = true
-                        video.src = url
+                        video.setAttribute("data-src", url)
+                        const observer = lozad(video);
+                        observer.observe();
                         row.append(video)
                     }
                 });
@@ -76,7 +82,6 @@
                             })
                             loadJots(db, user, attachmentMap);
                         })
-
                 }
             });
         } catch (e) {

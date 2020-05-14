@@ -28,7 +28,7 @@
             });
             firebase.auth().onAuthStateChanged(user => {
                 if (user) {
-                    window.location.assign(`/nyx`);
+                    window.location.assign(`/nyx.html`);
                 }
             });
         } catch (e) {
