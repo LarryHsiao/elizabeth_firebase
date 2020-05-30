@@ -1,8 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{user_id}/{document=**} {
-      allow read, write: if request.auth.uid == user_id;
+  	match /{user_id}/account/{document=**}{
+    	allow read : if request.auth.uid == user_id;
+    }
+    match /{user_id}/data/{document=**} {
+      allow read, write: if request.auth.uid == user_id
+      && get(/databases/$(database)/documents/$(request.auth.uid)/account).data.premium == true;
     }
   }
 }
