@@ -95,7 +95,7 @@ async function subCheck() {
 /**
  * Use to check the subscription status. Return error to inform user to change account for cloud functions.
  */
-exports.subscribtion = functions.https.onRequest(async (req, res) => {
+exports.subscription = functions.https.onRequest(async (req, res) => {
     try {
         const sub = req.body as Subscription
         if (sub.uid == undefined) {
