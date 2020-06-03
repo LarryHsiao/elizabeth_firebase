@@ -3,6 +3,8 @@ import * as admin from 'firebase-admin';
 import * as key from '../key.json';
 import {androidpublisher_v3, google} from 'googleapis';
 
+const PACKAGE_NAME: string = "com.larryhsiao.nyx"
+
 require("firebase/firestore");
 
 admin.initializeApp()
@@ -22,7 +24,6 @@ const playDeveloperApiClient = google.androidpublisher({
 
 export interface Subscription {
     uid: string,
-    package_name: string,
     sku_id: string,
     purchase_token: string,
     changeUser: boolean
@@ -106,7 +107,7 @@ exports.subscribtion = functions.https.onRequest(async (req, res) => {
         }
         await authClient.authorize();
         const playRes = await playDeveloperApiClient.purchases.subscriptions.get({
-            packageName: sub.package_name,
+            packageName: PACKAGE_NAME,
             subscriptionId: sub.sku_id,
             token: sub.purchase_token
         });
@@ -156,6 +157,7 @@ exports.subscribtion = functions.https.onRequest(async (req, res) => {
         }
     } catch (error) {
         console.log(error)
+        res.status(500)
         res.send({
             status: 500,
             message: "Failed to verify subscription, Try again!"
@@ -188,7 +190,7 @@ async function updatePurchaseInfo(
     await userOrderRef.update({
         uid: sub.uid,
         productId: sub.sku_id,
-        packageName: sub.package_name
+        packageName: PACKAGE_NAME
     });
 }
 

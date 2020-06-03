@@ -16,7 +16,7 @@
   },
   "main": "lib/src/index.js",
   "dependencies": {
-    "firebase": "^7.14.3",
+    "firebase": "^7.14.6",
     "firebase-admin": "^8.12.1",
     "firebase-functions": "^3.6.1",
     "googleapis": "^51.0.0"
