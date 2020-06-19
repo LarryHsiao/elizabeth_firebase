@@ -4,7 +4,16 @@ service cloud.firestore {
   	match /{user_id}/account/{document=**}{
     	allow read : if request.auth.uid == user_id;
     }
-    match /{user_id}/data/{document=**} {
+    match /{user_id}/data/jots/{document=**} {
+      allow read, write: if request.auth.uid == user_id;
+    }
+    match /{user_id}/data/tags/{document=**} {
+      allow read, write: if request.auth.uid == user_id;
+    }
+    match /{user_id}/data/tag_jot/{document=**} {
+      allow read, write: if request.auth.uid == user_id;
+    }
+    match /{user_id}/data/attachments/{document=**} {
       allow read, write: if request.auth.uid == user_id
       && get(/databases/$(database)/documents/$(request.auth.uid)/account).data.premium == true;
     }
