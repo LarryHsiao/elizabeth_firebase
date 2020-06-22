@@ -33,6 +33,14 @@ exports.dailySubCheck = functions.pubsub.schedule('0 0 * * *').onRun((() => {
     return subCheck();
 }));
 
+async function deleteUserData(uid: string, keyHash: string) {
+    await deleteCollection(firestore, `${uid}/${keyHash}/attachments`, 10);
+    await deleteCollection(firestore, `${uid}/${keyHash}/jots`, 10);
+    await deleteCollection(firestore, `${uid}/${keyHash}/tag_jot`, 10);
+    await deleteCollection(firestore, `${uid}/${keyHash}/tags`, 10);
+    await storage.bucket().deleteFiles({prefix: `${uid}/`})
+}
+
 async function subCheck() {
     const currentTime = new Date().getTime();
     const purchasesRef = firestore.collection("purchases");
@@ -77,15 +85,12 @@ async function subCheck() {
             }
         }
         if (expiredData.expiryTimeMillis + 2592000000  /* 30days */ < currentTime) {
+            let keyHash = (await firestore.doc(`${expiredData.uid}/account`).get()).get("key_hash");
             await firestore.doc(`purchases/${expired.id}`).delete()
             await firestore.doc(`${expiredData.uid}/account/purchases/${expired.id}`).delete()
             const purchases = await firestore.collection(`${expiredData.uid}/account/purchases/`).listDocuments();
             if (purchases.length == 0) {
-                await deleteCollection(firestore, `${expiredData.uid}/data/attachments`, 10);
-                await deleteCollection(firestore, `${expiredData.uid}/data/jots`, 10);
-                await deleteCollection(firestore, `${expiredData.uid}/data/tag_jot`, 10);
-                await deleteCollection(firestore, `${expiredData.uid}/data/tags`, 10);
-                await storage.bucket().deleteFiles({prefix: `${expiredData.uid}/`})
+                await deleteUserData(expiredData.uid, keyHash);
             }
         }
         await updatePremiumState(expiredData.uid);
@@ -194,7 +199,6 @@ async function updatePurchaseInfo(
     });
 }
 
-
 function deleteCollection(
     db: FirebaseFirestore.Firestore,
     collectionPath: string,
@@ -235,3 +239,37 @@ function deleteQueryBatch(
         });
     }).catch(reject);
 }
+
+/**
+ * Request DTO for /encryptKey.
+ */
+export interface EncryptKeyReq {
+    uid: string,
+    keyHash: string
+}
+
+/**
+ * Endpoint for client to check/change encrypt key
+ * which is used for encrypt user content.
+ */
+exports.encryptKey = functions.https.onRequest(async (req, res) => {
+    if (req.method == "GET") {
+        const accountRef = firestore.doc(`${req.query.uid}/account`);
+        const accountSnapshot = await accountRef.get();
+        const keyHash = accountSnapshot.get("key_hash");
+        res.status(200);
+        res.send({keyHash: keyHash});
+    }
+    if (req.method == "PUT") {
+        const body = req.body as EncryptKeyReq;
+        const accountRef = firestore.doc(`${body.uid}/account`);
+        const currentKeyHash = (await accountRef.get()).get("key_hash");
+        if (currentKeyHash == body.keyHash) {
+            res.sendStatus(403);
+            return
+        }
+        await deleteUserData(body.uid, currentKeyHash);
+        await accountRef.set({key_hash: body.keyHash});
+        res.sendStatus(204);
+    }
+})
