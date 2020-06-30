@@ -177,9 +177,9 @@ async function updatePremiumState(uid: string) {
         .where("expiryTimeMillis", ">", new Date().getTime())
         .get();
     if (premium.size > 0) {
-        await accountRef.set({premium: true})
+        await accountRef.update({premium: true})
     } else {
-        await accountRef.set({premium: false})
+        await accountRef.update({premium: false})
     }
 }
 
@@ -269,7 +269,7 @@ exports.encryptKey = functions.https.onRequest(async (req, res) => {
             return
         }
         await deleteUserData(body.uid, currentKeyHash);
-        await accountRef.set({key_hash: body.keyHash});
+        await accountRef.update({key_hash: body.keyHash});
         res.sendStatus(204);
     }
 })
