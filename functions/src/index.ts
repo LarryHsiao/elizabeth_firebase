@@ -39,10 +39,14 @@ exports.subCheck = functions.https.onRequest(async (req,res) => {
 });
 
 async function deleteUserData(uid: string, keyHash: string) {
-    await deleteCollection(firestore, `${uid}/${keyHash}/attachments`, 10);
     await deleteCollection(firestore, `${uid}/${keyHash}/jots`, 10);
     await deleteCollection(firestore, `${uid}/${keyHash}/tag_jot`, 10);
     await deleteCollection(firestore, `${uid}/${keyHash}/tags`, 10);
+    await deletePremiumData(uid, keyHash);
+}
+
+async function deletePremiumData(uid: string, keyHash:string) {
+    await deleteCollection(firestore, `${uid}/${keyHash}/attachments`, 10);
     await storage.bucket().deleteFiles({prefix: `${uid}/`})
 }
 
@@ -95,7 +99,7 @@ async function subCheck() {
             await firestore.doc(`${expiredData.uid}/account/purchases/${expired.id}`).delete()
             const purchases = await firestore.collection(`${expiredData.uid}/account/purchases/`).listDocuments();
             if (purchases.length == 0) {
-                await deleteUserData(expiredData.uid, keyHash);
+                await deletePremiumData(expiredData.uid, keyHash);
             }
         }
         await updatePremiumState(expiredData.uid);
