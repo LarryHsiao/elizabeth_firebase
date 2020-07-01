@@ -33,6 +33,11 @@ exports.dailySubCheck = functions.pubsub.schedule('0 0 * * *').onRun((() => {
     return subCheck();
 }));
 
+exports.subCheck = functions.https.onRequest(async (req,res) => {
+    await subCheck();
+    res.sendStatus(204);
+});
+
 async function deleteUserData(uid: string, keyHash: string) {
     await deleteCollection(firestore, `${uid}/${keyHash}/attachments`, 10);
     await deleteCollection(firestore, `${uid}/${keyHash}/jots`, 10);
