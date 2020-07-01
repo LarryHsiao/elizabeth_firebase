@@ -62,6 +62,7 @@ async function subCheck() {
             if (playRes.data.orderId !== expired.data().orderId) {
                 if (Number(playRes.data.expiryTimeMillis) > currentTime) {
                     await updatePurchaseInfo(
+                        expiredData.uid,
                         firestore.doc(`purchases/${expired.id}`),
                         playRes.data,
                         new class implements Subscription {
@@ -69,10 +70,10 @@ async function subCheck() {
                             package_name = expiredData.packageName
                             purchase_token = expired.id
                             sku_id = expiredData.productId
-                            uid = expiredData.uid
                         }
                     )
                     await updatePurchaseInfo(
+                        expiredData.uid,
                         firestore.doc(`${expiredData.uid}/account/purchases/${expired.id}`),
                         playRes.data,
                         new class implements Subscription {
@@ -80,7 +81,6 @@ async function subCheck() {
                             package_name = expiredData.packageName
                             purchase_token = expired.id
                             sku_id = expiredData.productId
-                            uid = expiredData.uid
                         }
                     )
                     await updatePremiumState(expiredData.uid)
@@ -151,7 +151,7 @@ export interface Subscription {
 app.post("/subscription", async (req, res) => {
     try {
         const sub = req.body as Subscription
-        if (sub.uid == undefined) {
+        if (req.query.uid == undefined) {
             res.status(400)
             res.send({
                 message: "Required UID"
@@ -169,19 +169,20 @@ app.post("/subscription", async (req, res) => {
             const order = await adminOrderRef.get();
             if (order.exists) {
                 const existUid = await order.get("uid");
-                if (existUid == sub.uid) {
+                if (existUid == `${req.query.uid}`) {
                     res.sendStatus(204)
                 } else {
                     if (sub.changeUser) {
                         await firestore.doc(`${existUid}/account/purchases/${sub.purchase_token}`).delete();
                         await updatePremiumState(existUid);
                         await updatePurchaseInfo(
-                            firestore.doc(`${sub.uid}/account/purchases/${sub.purchase_token}`),
+                            `${req.query.uid}`,
+                            firestore.doc(`${req.query.uid}/account/purchases/${sub.purchase_token}`),
                             playRes.data,
                             sub
                         )
-                        await updatePremiumState(sub.uid)
-                        await adminOrderRef.update({uid: sub.uid})
+                        await updatePremiumState(`${req.query.uid}`)
+                        await adminOrderRef.update({uid: req.query.uid})
                         res.sendStatus(204)
                     } else {
                         res.status(409)
@@ -192,13 +193,14 @@ app.post("/subscription", async (req, res) => {
                     }
                 }
             } else {
-                await updatePurchaseInfo(adminOrderRef, playRes.data, sub)
+                await updatePurchaseInfo(`${req.query.uid}`, adminOrderRef, playRes.data, sub)
                 await updatePurchaseInfo(
-                    firestore.doc(`${sub.uid}/account/purchases/${sub.purchase_token}`),
+                    `${req.query.uid}`,
+                    firestore.doc(`${req.query.uid}/account/purchases/${sub.purchase_token}`),
                     playRes.data,
                     sub
                 );
-                await updatePremiumState(sub.uid);
+                await updatePremiumState(`${req.query.uid}`);
                 res.sendStatus(201)
             }
         } else {
@@ -232,6 +234,7 @@ async function updatePremiumState(uid: string) {
 }
 
 async function updatePurchaseInfo(
+    uid: string,
     userOrderRef: FirebaseFirestore.DocumentReference,
     data: androidpublisher_v3.Schema$SubscriptionPurchase,
     sub: Subscription
@@ -241,7 +244,7 @@ async function updatePurchaseInfo(
         expiryTimeMillis: Number(data.expiryTimeMillis)
     })
     await userOrderRef.update({
-        uid: sub.uid,
+        uid: uid,
         productId: sub.sku_id,
         packageName: PACKAGE_NAME
     });
@@ -309,13 +312,13 @@ app.get("/encryptKey", async (req, res) => {
 
 app.put("/encryptKey", async (req, res) => {
     const body = req.body as EncryptKeyReq;
-    const accountRef = firestore.doc(`${body.uid}/account`);
+    const accountRef = firestore.doc(`${req.query.uid}/account`);
     const currentKeyHash = (await accountRef.get()).get("key_hash");
     if (currentKeyHash == body.keyHash) {
         res.sendStatus(403);
         return
     }
-    await deleteUserData(body.uid, currentKeyHash);
+    await deleteUserData(`${req.query.uid}`, currentKeyHash);
     await accountRef.update({key_hash: body.keyHash});
     res.sendStatus(204);
 });
