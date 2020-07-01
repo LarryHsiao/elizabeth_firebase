@@ -2,12 +2,14 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import * as key from '../key.json';
 import {androidpublisher_v3, google} from 'googleapis';
+import * as express from 'express';
 
 const PACKAGE_NAME: string = "com.larryhsiao.nyx"
 
 require("firebase/firestore");
 
 admin.initializeApp()
+const app = express();
 const firestore = admin.firestore();
 const storage = admin.storage();
 
@@ -22,21 +24,14 @@ const playDeveloperApiClient = google.androidpublisher({
     auth: authClient
 });
 
-export interface Subscription {
-    uid: string,
-    sku_id: string,
-    purchase_token: string,
-    changeUser: boolean
-}
-
 exports.dailySubCheck = functions.pubsub.schedule('0 0 * * *').onRun((() => {
     return subCheck();
 }));
 
-exports.subCheck = functions.https.onRequest(async (req,res) => {
+app.get('/subCheck', async (req, res) => {
     await subCheck();
     res.sendStatus(204);
-});
+})
 
 async function deleteUserData(uid: string, keyHash: string) {
     await deleteCollection(firestore, `${uid}/${keyHash}/jots`, 10);
@@ -45,7 +40,7 @@ async function deleteUserData(uid: string, keyHash: string) {
     await deletePremiumData(uid, keyHash);
 }
 
-async function deletePremiumData(uid: string, keyHash:string) {
+async function deletePremiumData(uid: string, keyHash: string) {
     await deleteCollection(firestore, `${uid}/${keyHash}/attachments`, 10);
     await storage.bucket().deleteFiles({prefix: `${uid}/`})
 }
@@ -106,10 +101,54 @@ async function subCheck() {
     })
 }
 
+app.use(async (req, res, next)=>{
+    console.log('Check if request is authorized with Firebase ID token');
+    if ((!req.headers.authorization || !req.headers.authorization.startsWith('Bearer ')) &&
+        !(req.cookies && req.cookies.__session)) {
+        console.error('No Firebase ID token was passed as a Bearer token in the Authorization header.',
+            'Make sure you authorize your request by providing the following HTTP header:',
+            'Authorization: Bearer <Firebase ID Token>',
+            'or by passing a "__session" cookie.');
+        res.status(403).send('Unauthorized');
+        return;
+    }
+    let idToken;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+        console.log('Found "Authorization" header');
+        // Read the ID Token from the Authorization header.
+        idToken = req.headers.authorization.split('Bearer ')[1];
+    } else if(req.cookies) {
+        console.log('Found "__session" cookie');
+        // Read the ID Token from cookie.
+        idToken = req.cookies.__session;
+    } else {
+        // No cookie
+        res.status(403).send('Unauthorized');
+        return;
+    }
+    try {
+        const decodedIdToken = await admin.auth().verifyIdToken(idToken);
+        console.log('ID Token correctly decoded', decodedIdToken);
+        req.query.uid = decodedIdToken.uid;
+        next();
+        return;
+    } catch (error) {
+        console.error('Error while verifying Firebase ID token:', error);
+        res.status(403).send('Unauthorized');
+        return;
+    }
+});
+
+export interface Subscription {
+    sku_id: string,
+    purchase_token: string,
+    changeUser: boolean
+}
+
 /**
  * Use to check the subscription status. Return error to inform user to change account for cloud functions.
  */
-exports.subscription = functions.https.onRequest(async (req, res) => {
+app.post("/subscription", async (req, res) => {
     try {
         const sub = req.body as Subscription
         if (sub.uid == undefined) {
@@ -253,7 +292,6 @@ function deleteQueryBatch(
  * Request DTO for /encryptKey.
  */
 export interface EncryptKeyReq {
-    uid: string,
     keyHash: string
 }
 
@@ -261,24 +299,37 @@ export interface EncryptKeyReq {
  * Endpoint for client to check/change encrypt key
  * which is used for encrypt user content.
  */
-exports.encryptKey = functions.https.onRequest(async (req, res) => {
-    if (req.method == "GET") {
-        const accountRef = firestore.doc(`${req.query.uid}/account`);
-        const accountSnapshot = await accountRef.get();
-        const keyHash = accountSnapshot.get("key_hash");
-        res.status(200);
-        res.send({keyHash: keyHash});
+app.get("/encryptKey", async (req, res) => {
+    const accountRef = firestore.doc(`${req.query.uid}/account`);
+    const accountSnapshot = await accountRef.get();
+    const keyHash = accountSnapshot.get("key_hash");
+    res.status(200);
+    res.send({keyHash: keyHash});
+});
+
+app.put("/encryptKey", async (req, res) => {
+    const body = req.body as EncryptKeyReq;
+    const accountRef = firestore.doc(`${body.uid}/account`);
+    const currentKeyHash = (await accountRef.get()).get("key_hash");
+    if (currentKeyHash == body.keyHash) {
+        res.sendStatus(403);
+        return
     }
-    if (req.method == "PUT") {
-        const body = req.body as EncryptKeyReq;
-        const accountRef = firestore.doc(`${body.uid}/account`);
-        const currentKeyHash = (await accountRef.get()).get("key_hash");
-        if (currentKeyHash == body.keyHash) {
-            res.sendStatus(403);
-            return
-        }
-        await deleteUserData(body.uid, currentKeyHash);
-        await accountRef.update({key_hash: body.keyHash});
-        res.sendStatus(204);
+    await deleteUserData(body.uid, currentKeyHash);
+    await accountRef.update({key_hash: body.keyHash});
+    res.sendStatus(204);
+});
+
+/**
+ * @todo #2 Trigger for update storage usage in firestore account doc.
+ */
+app.get("/storageStatus", async (req, res) => {
+    const [files] = await storage.bucket().getFiles({prefix: `${req.query.uid}/`})
+    let usage = 0;
+    for (let file of files) {
+        usage = usage + parseInt(file.metadata.size);
     }
+    res.status(200);
+    res.send({total: usage})
 })
+exports.app = functions.https.onRequest(app);
